@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HAM Cloud UDP Bridge</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="mark" aria-hidden="true">HAM</span>
+        <div>
+          <strong>HAM Cloud <span class="muted">/ UDP Bridge</span></strong
+          ><small>SDR-Control to your logbook</small>
+        </div>
+      </div>
+      <span class="local">LOCAL CONNECTION</span>
+    </header>
+    <main>
+      <section class="heading">
+        <div>
+          <p class="eyebrow">STATION CONSOLE</p>
+          <h1>Live QSO logging</h1>
+          <p class="muted">
+            Receive your QSOs locally. Follow each upload to CloudLog and Club
+            Log.
+          </p>
+        </div>
+        <span id="connection" class="pill">Connecting</span>
+      </section>
+      <div id="notice" role="status" aria-live="polite" hidden></div>
+      <section class="metrics" aria-label="Bridge status">
+        <div>
+          <small>UDP LISTENER</small
+          ><strong id="listener-status">Stopped</strong
+          ><span id="listener-address">127.0.0.1:2237</span>
+        </div>
+        <div>
+          <small>UPLOAD MODE</small
+          ><strong id="upload-mode">Capture only</strong
+          ><span id="upload-hint">No QSOs sent to CloudLog</span>
+        </div>
+        <div>
+          <small>CONFIRMED DELIVERIES</small><strong id="uploaded">0</strong
+          ><span id="delivery-counts">CloudLog 0 · Club Log 0</span>
+        </div>
+        <div>
+          <small>AWAITING UPLOAD</small><strong id="pending">0</strong
+          ><span id="failed">0 need attention</span>
+        </div>
+      </section>
+      <div class="layout">
+        <aside>
+          <section class="panel">
+            <div class="section-title">
+              <h2>Connection settings</h2>
+              <span id="saved" class="muted">Saved locally</span>
+            </div>
+            <form id="settings">
+              <fieldset>
+                <legend>01 / UDP listener</legend>
+                <label for="udp_host">Listener IP address</label
+                ><input
+                  id="udp_host"
+                  name="udp_host"
+                  value="127.0.0.1"
+                  required
+                  spellcheck="false"
+                /><label for="udp_port">UDP port</label
+                ><input
+                  id="udp_port"
+                  name="udp_port"
+                  type="number"
+                  value="2237"
+                  min="1"
+                  max="65535"
+                  required
+                />
+                <p class="help">
+                  Use the same destination IP and port in SDR-Control. Stop the
+                  listener before changing these.
+                </p>
+              </fieldset>
+              <fieldset>
+                <legend>02 / CloudLog destination</legend>
+                <label for="cloudlog_url">Server URL</label
+                ><input
+                  id="cloudlog_url"
+                  name="cloudlog_url"
+                  type="url"
+                  placeholder="https://your-cloudlog-server.example"
+                  spellcheck="false"
+                /><label for="api_key">Read/write API key</label
+                ><input
+                  id="api_key"
+                  name="api_key"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Enter API key"
+                />
+                <p id="key-help" class="help">Stored in macOS Keychain.</p>
+                <label class="check"
+                  ><input id="clear_api_key" type="checkbox" /> Remove saved API
+                  key</label
+                ><label for="station_id">Station profile ID</label
+                ><input
+                  id="station_id"
+                  name="station_id"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g. 1"
+                /><button
+                  type="button"
+                  id="load-stations"
+                  class="secondary wide"
+                >
+                  Check key and load stations</button
+                ><select
+                  id="stations"
+                  aria-label="Available CloudLog stations"
+                  hidden
+                >
+                  <option value="">Choose a station</option>
+                </select>
+                <p class="help">
+                  Save the URL and key first. Choose a station, then save again.
+                </p>
+              </fieldset>
+              <fieldset>
+                <legend>03 / Club Log destination</legend>
+                <label class="check"
+                  ><input id="clublog_enabled" type="checkbox" /> Also upload
+                  new QSOs to Club Log</label
+                >
+                <p class="help">
+                  Optional. Each destination has its own upload record and
+                  retries. Enabling this does not send earlier packets.
+                </p>
+                <label for="clublog_email">Club Log email address</label
+                ><input
+                  id="clublog_email"
+                  type="email"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <label for="clublog_callsign">Your Club Log callsign</label
+                ><input
+                  id="clublog_callsign"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="e.g. YOURCALL"
+                />
+                <label for="clublog_password"
+                  >Club Log application password</label
+                ><input
+                  id="clublog_password"
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <label class="check"
+                  ><input id="clear_clublog_password" type="checkbox" /> Remove
+                  saved application password</label
+                >
+                <p class="help">
+                  Create this in Club Log → Settings → App Passwords.
+                </p>
+                <label for="clublog_api_key"
+                  >Developer API key for this bridge</label
+                ><input
+                  id="clublog_api_key"
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <label class="check"
+                  ><input id="clear_clublog_api_key" type="checkbox" /> Remove
+                  saved developer API key</label
+                >
+                <p class="help">
+                  Request the developer API key through
+                  <a
+                    href="https://clublog.org/requestapikey.php"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Club Log’s developer request form</a
+                  >. It is issued for this software and is not another App
+                  Password. Both are stored in macOS Keychain. Leave saved
+                  credentials blank to keep them.
+                </p>
+                <p id="clublog-key-warning" class="warning" hidden>
+                  The saved developer key differs from the format in Club Log’s
+                  documentation. Check that it is the key issued for this
+                  software, not an App Password.
+                </p>
+                <p id="clublog-summary" class="help">Club Log is off.</p>
+              </fieldset>
+              <fieldset>
+                <legend>04 / Uploads</legend>
+                <label class="check"
+                  ><input
+                    id="uploads_enabled"
+                    name="uploads_enabled"
+                    type="checkbox"
+                  />
+                  Upload new QSOs automatically</label
+                >
+                <p class="help">
+                  When off, new packets are captured only and queued uploads are
+                  paused. Captured packets are never uploaded later
+                  automatically. An upload already in progress may finish.
+                </p>
+              </fieldset>
+              <button class="primary wide" type="submit">Save settings</button>
+            </form>
+          </section>
+          <section class="setup">
+            <h3>In SDR-Control</h3>
+            <ol>
+              <li>Open Settings → External Software.</li>
+              <li>Enable UDP log submission.</li>
+              <li>Select <strong>N1MM or Log4OM</strong>.</li>
+              <li>
+                Set the destination to
+                <strong id="setup-address">127.0.0.1:2237</strong>.
+              </li>
+            </ol>
+            <p>
+              Start in capture-only mode and use SDR-Control’s Test button.
+              Enable uploads once the received fields look correct.
+            </p>
+          </section>
+        </aside>
+        <div class="activity">
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Incoming broadcasts</h2>
+                <p class="help">
+                  Latest 100 packets · refreshes every second · times shown
+                  locally
+                </p>
+              </div>
+              <button id="toggle" class="primary">Start listener</button>
+            </div>
+            <p id="listener-error" class="error-text" hidden></p>
+            <p class="help">
+              Stopping the listener stops reception. Use the upload setting to
+              pause the outbox.
+            </p>
+            <div id="events" class="events">
+              <div class="empty">
+                <span class="signal" aria-hidden="true">∿</span>
+                <h3>Ready for your next contact</h3>
+                <p>
+                  Start the listener to receive broadcasts from SDR-Control.
+                </p>
+              </div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Upload outbox</h2>
+                <p class="help">
+                  Separate record for each destination · latest 200 deliveries
+                </p>
+              </div>
+              <span class="pill">ADIF → API</span>
+            </div>
+            <p id="held" class="warning" hidden></p>
+            <div id="clublog-pause" class="warning" hidden>
+              <p id="clublog-pause-text"></p>
+              <button id="clublog-resume" type="button" class="secondary">
+                Resume Club Log after resolving the error
+              </button>
+            </div>
+            <div id="jobs">
+              <div class="empty compact"><p>No uploads queued yet.</p></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <footer>
+        <span>HAM Cloud UDP Bridge · 1.2</span
+        ><span
+          >Browser interface restricted to this Mac · No external assets</span
+        >
+      </footer>
+    </main>
+  </body>
+</html>
