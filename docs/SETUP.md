@@ -23,7 +23,7 @@ The password generated on the **App Passwords** page is not a developer API key.
 
 Developer keys are requested via [Club Log's request form](https://clublog.org/requestapikey.php). This repository does not include a key or imply approval. If applying, identify the project, its repository URL and use of `realtime.php` for new QSOs and `putlogs.php` for delayed batches. Do not reuse another application's key or commit an issued key to this repository.
 
-Enter the four values, enable **Also upload new QSOs to Club Log**, and save. The main automatic-upload setting must also be enabled. Leave saved password/key fields blank to keep their existing Keychain values. To remove them, disable Club Log and select the relevant removal checkboxes.
+Enter the four values, enable **Enable Club Log uploads**, and save. The main automatic-upload setting must also be enabled. Leave saved password/key fields blank to keep their existing Keychain values. To remove them, disable Club Log and select the relevant removal checkboxes.
 
 Club Log's documentation shows a 40-character hexadecimal developer key. The UI warns about other formats but does not reject them solely on that basis. It trims leading/trailing whitespace; it does not silently alter internal characters.
 
@@ -40,6 +40,16 @@ Check the developer key, email, application password and registered callsign. [C
 Fresh individual requests are spaced by at least three seconds. Multiple due contacts, or a delivery waiting more than five minutes, use an ADIF batch merge. Up to 500 due records are included in one batch, with at least five minutes between batch submissions. New deliveries can wait during that interval.
 
 A successful batch submission means Club Log accepted the file for later processing, not that every QSO was imported. Verify its processing in Club Log. Any batch failure pauses Club Log. Correct authentication failures by changing the credentials. For other failures, resolve the error, select **Resume Club Log**, then retry failed deliveries. The batch interval still applies.
+
+## Ignoring rebroadcasts
+
+Enable **Ignore rebroadcasts** under Uploads and save. The option starts off for backwards compatibility. When enabled, it skips contacts already in the bridge's delivery history for the current destinations, including packets with added name or location details. It also skips previously unseen contacts older than **Maximum QSO age**, initially 15 minutes. Both destinations are skipped, and the incoming packet is recorded as **Ignored**, with a reason. Existing queued jobs and retries are unaffected. Capture-only mode still captures all valid packets.
+
+The age uses UTC `QSO_DATE_OFF` / `TIME_OFF` when available, otherwise `QSO_DATE` / `TIME_ON`. An end time without an end date uses the start date, allowing a midnight crossing. A malformed end timestamp is reported as an invalid packet.
+
+This is a heuristic: the supported Log packets do not identify whether SDR-Control is adding a new QSO or rebroadcasting an old one. An unseen rebroadcast within the age limit can still be uploaded. Conversely, a delayed new QSO or a long contact without an end time can be ignored. Keep the Mac and logger clocks accurate, increase the age limit if needed, and switch the filter off before deliberately rebroadcasting missed contacts. Ignored packets are not automatically released when the filter is disabled.
+
+To stop Club Log jobs accumulating, clear **Enable Club Log uploads** and save. This prevents new Club Log jobs and pauses existing ones without affecting CloudLog. Re-enabling it resumes existing jobs but does not backfill packets received while it was off. An upload already in progress may finish.
 
 ## macOS Keychain
 

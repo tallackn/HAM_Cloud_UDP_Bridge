@@ -54,7 +54,7 @@ def upload_clublog(config, jobs, batch=False):
         data = urllib.parse.urlencode(fields).encode('utf-8')
         content_type, path = 'application/x-www-form-urlencoded', '/realtime.php'
     request = urllib.request.Request(URL + path, data=data, headers={
-        'Content-Type': content_type, 'User-Agent': 'HAM-Cloud-UDP-Bridge/1.2'})
+        'Content-Type': content_type, 'User-Agent': 'HAM-Cloud-UDP-Bridge/1.3'})
     try:
         with urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=15) as response:
             status = response.status

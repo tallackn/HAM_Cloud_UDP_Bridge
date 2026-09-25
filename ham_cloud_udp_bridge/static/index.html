@@ -131,12 +131,13 @@
               <fieldset>
                 <legend>03 / Club Log destination</legend>
                 <label class="check"
-                  ><input id="clublog_enabled" type="checkbox" /> Also upload
-                  new QSOs to Club Log</label
+                  ><input id="clublog_enabled" type="checkbox" /> Enable Club Log
+                  uploads</label
                 >
                 <p class="help">
-                  Optional. Each destination has its own upload record and
-                  retries. Enabling this does not send earlier packets.
+                  When off, no new Club Log jobs are queued and existing jobs
+                  are paused. CloudLog continues. Switching this back on resumes
+                  existing jobs but does not backfill earlier packets.
                 </p>
                 <label for="clublog_email">Club Log email address</label
                 ><input
@@ -210,6 +211,25 @@
                   paused. Captured packets are never uploaded later
                   automatically. An upload already in progress may finish.
                 </p>
+                <label class="check"
+                  ><input id="ignore_rebroadcasts" type="checkbox" /> Ignore
+                  rebroadcasts</label
+                >
+                <p class="help">
+                  Skip contacts already recorded by the bridge and older QSOs,
+                  for both destinations. Ignored packets remain visible in the
+                  activity log. This does not cancel uploads already queued.
+                </p>
+                <label for="rebroadcast_minutes">Maximum QSO age (minutes)</label>
+                <input id="rebroadcast_minutes" type="number" value="15"
+                  min="1" max="1440" step="1" required />
+                <p class="help">
+                  Used only when ignoring rebroadcasts. Uses the QSO end time,
+                  or its start time if no end time is supplied. This is an age
+                  filter, not a guaranteed rebroadcast detector. Increase the
+                  limit for long contacts without an end time, or turn it off
+                  before deliberately sending missed contacts.
+                </p>
               </fieldset>
               <button class="primary wide" type="submit">Save settings</button>
             </form>
@@ -282,7 +302,7 @@
         </div>
       </div>
       <footer>
-        <span>HAM Cloud UDP Bridge · 1.2</span
+        <span>HAM Cloud UDP Bridge · 1.3</span
         ><span
           >Browser interface restricted to this Mac · No external assets</span
         >

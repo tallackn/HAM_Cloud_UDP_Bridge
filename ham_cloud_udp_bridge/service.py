@@ -1,6 +1,7 @@
 """Durable outbox, exclusive UDP listener and CloudLog transport."""
 
 import hashlib
+import datetime as dt
 import fcntl
 import ipaddress
 import json
@@ -27,6 +28,7 @@ from .protocol import IgnoredPacket, parse_packet, to_adif
 DEFAULTS = {"udp_host": "127.0.0.1", "udp_port": 2237,
             "cloudlog_url": "", "api_key": "",
             "station_id": "", "uploads_enabled": False,
+            "ignore_rebroadcasts": False, "rebroadcast_minutes": 15,
             "clublog_enabled": False, "clublog_email": "", "clublog_callsign": "",
             "clublog_password": "", "clublog_api_key": ""}
 
@@ -75,7 +77,7 @@ def request_json(url, key, body=None):
     # Do not forward a key through redirects to a login page or different host.
     request = urllib.request.Request(url, data=None if body is None else json.dumps(body).encode(),
                                     headers={"Content-Type": "application/json", "Accept": "application/json",
-                                             "User-Agent": "HAM-Cloud-UDP-Bridge/1.2"})
+                                             "User-Agent": "HAM-Cloud-UDP-Bridge/1.3"})
     try:
         handlers = [NoRedirect]
         if urllib.parse.urlsplit(url).scheme == "https":
@@ -238,6 +240,14 @@ class Bridge:
                 config[secret] = config[secret].strip()
             if type(config['clublog_enabled']) is not bool:
                 raise ValueError('Invalid Club Log upload setting')
+            if type(config['ignore_rebroadcasts']) is not bool:
+                raise ValueError('Invalid rebroadcast setting')
+            minutes = config['rebroadcast_minutes']
+            if isinstance(minutes, str) and minutes.isascii() and minutes.isdigit():
+                minutes = int(minutes)
+            if type(minutes) is not int or not 1 <= minutes <= 1440:
+                raise ValueError('Rebroadcast age limit must be a whole number from 1 to 1440 minutes')
+            config['rebroadcast_minutes'] = minutes
             for name in ('clublog_email', 'clublog_callsign'):
                 if not isinstance(config[name], str) or len(config[name]) > 254:
                     raise ValueError('Invalid Club Log account setting')
@@ -345,15 +355,44 @@ class Bridge:
                     sock.close()
                 break
 
-    def _queue(self, fields, adif, service):
-        config = self.config
-        target, station = self.destination(config, service)
+    def _fingerprint(self, fields, service):
+        target, station = self.destination(self.config, service)
         identity = [target, station, fields.get('STATION_CALLSIGN', ''), fields['CALL'],
                     fields['QSO_DATE'], fields['TIME_ON'], fields.get('BAND', fields.get('FREQ', '')),
                     fields['MODE'], fields.get('SUBMODE', '')]
         if service == 'clublog':
             identity.insert(0, service)
-        fingerprint = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+
+    def _rebroadcast_reason(self, fields):
+        # A Log packet does not distinguish a new QSO from an older edited QSO.
+        # Check durable delivery history, then apply the user's explicit age limit.
+        services = ['cloudlog', 'clublog'] if self.config['clublog_enabled'] else ['cloudlog']
+        for service in services:
+            if self.db.execute('SELECT 1 FROM jobs WHERE identity=?',
+                               (self._fingerprint(fields, service),)).fetchone():
+                return 'Rebroadcast ignored: this contact is already recorded by the bridge'
+        start = dt.datetime.strptime(fields['QSO_DATE'] + fields['TIME_ON'], '%Y%m%d%H%M%S').replace(tzinfo=dt.timezone.utc)
+        logged = start
+        if fields.get('TIME_OFF'):
+            end_time = fields['TIME_OFF']
+            end_date = fields.get('QSO_DATE_OFF') or fields['QSO_DATE']
+            if not re.fullmatch(r'\d{4}(\d{2})?', end_time) or not re.fullmatch(r'\d{8}', end_date):
+                raise ValueError('Invalid QSO end date or UTC time for rebroadcast filter')
+            logged = dt.datetime.strptime(end_date + end_time.ljust(6, '0'), '%Y%m%d%H%M%S').replace(tzinfo=dt.timezone.utc)
+            if logged < start and not fields.get('QSO_DATE_OFF'):
+                logged += dt.timedelta(days=1)  # Contact crossed midnight UTC.
+            if logged < start:
+                raise ValueError('QSO end time precedes its start time')
+        minutes = self.config['rebroadcast_minutes']
+        if time.time() - logged.timestamp() > minutes * 60:
+            return f'Possible rebroadcast ignored: QSO time is more than {minutes} minutes old'
+        return ''
+
+    def _queue(self, fields, adif, service):
+        config = self.config
+        target, station = self.destination(config, service)
+        fingerprint = self._fingerprint(fields, service)
         old = self.db.execute('SELECT * FROM jobs WHERE identity=?', (fingerprint,)).fetchone()
         if old:
             if old['adif'] == adif:
@@ -384,6 +423,10 @@ class Bridge:
                 if not self.config['uploads_enabled']:
                     status, detail = 'captured', 'Capture only: not queued or uploaded'
                 else:
+                    if self.config['ignore_rebroadcasts']:
+                        reason = self._rebroadcast_reason(fields)
+                        if reason:
+                            raise IgnoredPacket(reason)
                     job_id, status, detail = self._queue(fields, adif, 'cloudlog')
                     if self.config['clublog_enabled']:
                         clublog_job_id, club_status, club_detail = self._queue(fields, adif, 'clublog')

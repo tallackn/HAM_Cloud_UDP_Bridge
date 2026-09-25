@@ -10,6 +10,7 @@ Receive a newly logged QSO over UDP, save it to a durable local outbox, and foll
 - Independent CloudLog and Club Log uploads, status, duplicate suppression and retries.
 - Start/stop UDP reception and configure destinations in a local web interface.
 - Capture-only mode for testing without uploading a QSO.
+- Optional rebroadcast filtering using delivery history and a configurable QSO age limit.
 - SQLite outbox that survives restarts, with received packets and outgoing ADIF visible for inspection.
 - API keys and passwords stored in **macOS Keychain**, using Apple's Security framework directly.
 - No third-party Python dependencies, external web assets or telemetry.
@@ -61,6 +62,7 @@ Each enabled destination receives its own outbox record. A failed or slow Club L
 
 | Status | Meaning |
 | --- | --- |
+| Ignored | A non-QSO message or a packet skipped by the rebroadcast filter |
 | Captured only | Displayed locally, with no upload job created |
 | Queued / Uploading | Waiting or currently submitting |
 | Uploaded | The service confirmed the QSO was stored |
@@ -75,12 +77,13 @@ Each enabled destination receives its own outbox record. A failed or slow Club L
 - New single QSOs use Club Log's real-time API. Backlogs use its ADIF merge API and show **Accepted; verify** until you check them remotely. The bridge never requests replacement or clearing of an existing Club Log logbook.
 - Network failures and transient real-time errors retry up to five total attempts. Club Log authentication failures stop further Club Log requests until credentials change. Batch failures also pause Club Log to respect its API rules.
 - Delivery records retain their original server/account and station/callsign. Changing settings holds unmatched jobs rather than redirecting them.
+- **Ignore rebroadcasts** skips known contacts and contacts older than the configured age limit (initially 15 minutes), using the end time if supplied, otherwise the start time. It is an optional heuristic, not a reliable protocol flag. See [filter behaviour and limitations](docs/SETUP.md#ignoring-rebroadcasts).
 - Local duplicate detection includes destination, station, callsign, UTC date/time, band, mode and submode. Delivery is not guaranteed exactly once: a lost response can follow a successful remote import.
 - The confirmed-deliveries counter counts destinations, not unique QSOs. One QSO delivered to two services adds two.
 
 ## Limits
 
-UDP provides no delivery acknowledgement. Packets sent while the listener or Mac is stopped or asleep are missed. Rebroadcast missed real QSOs from the sender.
+UDP provides no delivery acknowledgement. Packets sent while the listener or Mac is stopped or asleep are missed. Turn off **Ignore rebroadcasts** before deliberately rebroadcasting missed real QSOs from the sender.
 
 This is a **new-QSO importer**, not a two-way synchroniser. Edits and deletions must be applied in each remote logbook. N1MM `contactreplace`, `contactdelete` and radio-status packets are recorded but not imported. WSJT-X binary UDP is not supported.
 

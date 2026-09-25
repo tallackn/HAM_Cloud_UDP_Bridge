@@ -176,10 +176,12 @@ function populate(config) {
     "station_id",
     "clublog_email",
     "clublog_callsign",
+    "rebroadcast_minutes",
   ])
     $(key).value = config[key];
   $("uploads_enabled").checked = config.uploads_enabled;
   $("clublog_enabled").checked = config.clublog_enabled;
+  $("ignore_rebroadcasts").checked = config.ignore_rebroadcasts;
   for (const name of ["clublog_password", "clublog_api_key"]) {
     $(name).value = "";
     $("clear_" + name).checked = false;
@@ -232,8 +234,8 @@ async function refresh() {
     $("clublog-key-warning").hidden = !state.config.clublog_key_format_warning;
     $("clublog-summary").textContent = state.config.clublog_enabled
       ? "Club Log enabled. Automatic uploads must also be on. Switching Club Log off pauses its queued uploads."
-      : "Club Log is off; existing CloudLog uploads continue.";
-    $("clublog-pause").hidden = !state.clublog_block;
+      : "Club Log is off: no new jobs are queued and existing Club Log jobs are paused.";
+    $("clublog-pause").hidden = !state.config.clublog_enabled || !state.clublog_block;
     if (state.clublog_block) {
       $("clublog-pause-text").textContent =
         "Club Log uploads paused. " +
@@ -291,9 +293,11 @@ $("settings").addEventListener("submit", (event) => {
       "clublog_callsign",
       "clublog_password",
       "clublog_api_key",
+      "rebroadcast_minutes",
     ])
       body[key] = $(key).value;
     body.clublog_enabled = $("clublog_enabled").checked;
+    body.ignore_rebroadcasts = $("ignore_rebroadcasts").checked;
     for (const name of ["clublog_password", "clublog_api_key"])
       body["clear_" + name] = $("clear_" + name).checked;
     body.uploads_enabled = $("uploads_enabled").checked;

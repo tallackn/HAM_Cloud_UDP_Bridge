@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+- Added an optional rebroadcast filter using existing delivery history and a configurable QSO age limit.
+- Recorded filtered packets as ignored without creating jobs for either destination.
+- Clarified that disabling Club Log prevents new queue entries and pauses existing deliveries.
+- Added tests for repeat packets, old contacts, end times, settings persistence and destination controls.
+
 ## 1.2.0
 
 - Renamed the application and Python package to HAM Cloud UDP Bridge.
